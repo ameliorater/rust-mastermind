@@ -1,6 +1,7 @@
 use std::io;
 use rand::Rng;
 use std::panic::resume_unwind;
+use stable_vec::StableVec;
 
 #[derive(Eq, PartialEq)]
 struct Response {
@@ -18,8 +19,8 @@ fn main() {
 
 
     //set of all possible codes
-    let mut remaining_codes : Vec<Vec<u32>> = generate_all_codes(num_choices, code_length);
-    println!("{} {}", "Codes remaining: ", &mut remaining_codes.len());
+    let mut remaining_codes : StableVec<Vec<u32>> = generate_all_codes(num_choices, code_length);
+    println!("{} {}", "Codes remaining: ", &mut remaining_codes.num_elements());
 
     let actual_code = generate_code(num_choices, code_length);
 
@@ -34,7 +35,7 @@ fn main() {
         print_response(&response);
 
         remaining_codes = remove_codes(remaining_codes, &response);
-        println!("{} {}", "Codes remaining: ", &mut remaining_codes.len());
+        println!("{} {}", "Codes remaining: ", &mut remaining_codes.num_elements());
     }
 
 //    for code in remaining_codes.iter() {
@@ -91,10 +92,10 @@ fn responses_equal (response1: &Response, response2 : &Response) -> bool {
     false
 }
 
-fn remove_codes (mut codes: Vec<Vec<u32>>, response: &Response) -> Vec<Vec<u32>> {
+fn remove_codes (mut codes: StableVec<Vec<u32>>, response: &Response) -> StableVec<Vec<u32>> {
     let mut index = 0;
     loop {
-        if index >= codes.len() {
+        if index >= codes.num_elements() {
             break
         }
         if !responses_equal(&get_response(&codes[index], response.guess_code.clone()), &response) {
@@ -102,8 +103,8 @@ fn remove_codes (mut codes: Vec<Vec<u32>>, response: &Response) -> Vec<Vec<u32>>
         } else {
             index += 1;
         }
-        if codes.len() % 1000 == 0 {
-            println!("{} {}", "Code list length: ", codes.len());
+        if codes.num_elements() % 1000 == 0 {
+            println!("{} {}", "Code list length: ", codes.num_elements());
         }
         //println!("{} {} {} {}", "index: ", index, "length: ", codes.len());
     }
@@ -111,9 +112,9 @@ fn remove_codes (mut codes: Vec<Vec<u32>>, response: &Response) -> Vec<Vec<u32>>
     codes
 }
 
-fn generate_all_codes (num_choices: u32, code_length: u32) -> Vec <Vec<u32>> {
+fn generate_all_codes (num_choices: u32, code_length: u32) -> StableVec<Vec<u32>> {
     let numeric_codes : Vec<u32> = (0..=get_highest_value_code_num(num_choices, code_length)).map(|i| i as u32).collect();
-    let mut vector_codes : Vec<Vec<u32>> = Vec::new();
+    let mut vector_codes : StableVec<Vec<u32>> = StableVec::new();
     for code in numeric_codes {
         //add vector of code digits to our vector of all codes
         let mut code_vec = num_to_vec(code);
