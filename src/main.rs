@@ -1,7 +1,6 @@
 use std::io;
 use rand::Rng;
 use std::panic::resume_unwind;
-use stable_vec::StableVec;
 
 #[derive(Eq, PartialEq)]
 struct Response {
@@ -12,44 +11,49 @@ struct Response {
 
 fn main() {
     let num_choices = 10; //cannot be larger than 10
-    let code_length = 4;
+    let code_length = 6;
 
     let turn = 1;
     let won = false;
 
 
     //set of all possible codes
-    let mut remaining_codes : StableVec<Vec<u32>> = generate_all_codes(num_choices, code_length);
-    println!("{} {}", "Codes remaining: ", &mut remaining_codes.num_elements());
+    let mut remaining_codes : Vec<Vec<u32>> = generate_all_codes(num_choices, code_length);
+    println!("{} {}", "Codes remaining: ", &mut remaining_codes.len());
 
     let actual_code = generate_code(num_choices, code_length);
+    print_code("Actual code: ", &actual_code);
 
-    loop {
-        print_code(&actual_code);
-        let mut input = String::new();
-        println!("\nPlease enter a code guess: ");
-        io::stdin().read_line(&mut input).expect("Not a string");
-        let code_str = input.trim(); //trim whitespace and save input
-        let guess_code = string_to_vec(code_str);
+    //MANUAL GUESS ENTRY
+//    loop {
+//        let mut input = String::new();
+//        println!("\nPlease enter a code guess: ");
+//        io::stdin().read_line(&mut input).expect("Not a string");
+//        let code_str = input.trim(); //trim whitespace and save input
+//        let guess_code = string_to_vec(code_str);
+//        let response = get_response(&actual_code, guess_code);
+//        print_response(&response);
+//
+//        remaining_codes = remove_codes(remaining_codes, &response);
+//        println!("{} {}", "Codes remaining: ", &mut remaining_codes.len());
+//    }
+
+    //AUTOMATIC GUESSING
+    let initial_guesses : Vec<Vec<u32>> = vec![num_to_vec(123456), num_to_vec(234567), num_to_vec(345678), num_to_vec(456789), num_to_vec(567890)];
+    for guess_code in initial_guesses {
+        print_code("Guessed code: ", &guess_code);
         let response = get_response(&actual_code, guess_code);
         print_response(&response);
-
         remaining_codes = remove_codes(remaining_codes, &response);
-        println!("{} {}", "Codes remaining: ", &mut remaining_codes.num_elements());
+        println!("{} {}", "Codes remaining: ", &mut remaining_codes.len());
     }
 
+//    println!("\n\n\n Remaining codes: ");
 //    for code in remaining_codes.iter() {
 //        for digit in code {
 //            print!("{}", digit);
 //        }
 //        print!("\n");
-//    }
-
-    //print!("{}", get_highest_value_code_num(num_choices, code_length));
-
-//    //print code
-//    for value in code {
-//        print!("{}", value)
 //    }
 }
 
@@ -79,7 +83,7 @@ fn get_response (actual_code: &Vec<u32>, guess_code : Vec<u32>) -> Response {
 }
 
 fn print_response (response : &Response) {
-    print!("Right place: ");
+    println!("Right place: ");
     println!("{}", response.right_place);
     print!("Wrong place: ");
     println!("{}", response.wrong_place);
@@ -92,29 +96,29 @@ fn responses_equal (response1: &Response, response2 : &Response) -> bool {
     false
 }
 
-fn remove_codes (mut codes: StableVec<Vec<u32>>, response: &Response) -> StableVec<Vec<u32>> {
+fn remove_codes (mut codes: Vec<Vec<u32>>, response: &Response) -> Vec<Vec<u32>> {
     let mut index = 0;
     loop {
-        if index >= codes.num_elements() {
+        if index >= codes.len() {
             break
         }
         if !responses_equal(&get_response(&codes[index], response.guess_code.clone()), &response) {
-            codes.remove(index);
+            codes.swap_remove(index);
         } else {
             index += 1;
         }
-        if codes.num_elements() % 1000 == 0 {
-            println!("{} {}", "Code list length: ", codes.num_elements());
-        }
+//        if codes.len() % 1000 == 0 {
+//            println!("{} {}", "Code list length: ", codes.len());
+//        }
         //println!("{} {} {} {}", "index: ", index, "length: ", codes.len());
     }
 
     codes
 }
 
-fn generate_all_codes (num_choices: u32, code_length: u32) -> StableVec<Vec<u32>> {
+fn generate_all_codes (num_choices: u32, code_length: u32) -> Vec <Vec<u32>> {
     let numeric_codes : Vec<u32> = (0..=get_highest_value_code_num(num_choices, code_length)).map(|i| i as u32).collect();
-    let mut vector_codes : StableVec<Vec<u32>> = StableVec::new();
+    let mut vector_codes : Vec<Vec<u32>> = Vec::new();
     for code in numeric_codes {
         //add vector of code digits to our vector of all codes
         let mut code_vec = num_to_vec(code);
@@ -164,9 +168,10 @@ fn get_highest_value_code_num (num_choices: u32, code_length: u32) -> u32 {
     vec_to_num(highest_value_vec)
 }
 
-fn print_code(code : &Vec<u32>) {
-    println!("{}", "Actual code: ");
+fn print_code(code_label: &str, code : &Vec<u32>) {
+    println!("{}", code_label);
     for element in code {
-        print!("{}", *element);
+        print!("{}", element);
     }
+    println!();
 }
