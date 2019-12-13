@@ -68,7 +68,7 @@ fn main() {
                 same_boat_digits = tuple.1;
             }
             println!("{} {}", "Codes remaining: ", &mut remaining_codes.len());
-            print_vec_of_vec("Paired digits: ", &same_boat_digits);
+            println!("{} {:?}", "Paired digits: ", &same_boat_digits);
             previous_response = Some(response);
         }
 
@@ -145,7 +145,7 @@ fn remove_codes (mut codes: Vec<Vec<u32>>, response: &Response) -> Vec<Vec<u32>>
     codes
 }
 
-fn reduce_digits (mut codes: Vec<Vec<u32>>, previous_response : &Response, response : &Response, mut same_boat_digits : Vec<Vec<u32>>) -> (Vec<Vec<u32>>, Vec<Vec<u32>>) {
+fn reduce_digits (mut codes: Vec<Vec<u32>>, previous_response : &Response, response : &Response, mut same_boat_digits : HashMap<u32, u32>) -> (Vec<Vec<u32>>, HashMap<u32, u32>) {
     //find digit that IS in previous but not in current code
     //find digit that is NOT in previous but IS in current code
     //*if there is more than one digit added OR removed, return original codes array (no digits can be eliminated)
@@ -183,7 +183,7 @@ fn reduce_digits (mut codes: Vec<Vec<u32>>, previous_response : &Response, respo
         return (codes, same_boat_digits)
     }
 
-    same_boat_digits = merge_boats(same_boat_digits);
+    //same_boat_digits = merge_boats(same_boat_digits);
 
     let previous_sum = previous_response.right_place + previous_response.wrong_place;
     let current_sum = response.right_place + response.wrong_place;
@@ -207,9 +207,9 @@ fn reduce_digits (mut codes: Vec<Vec<u32>>, previous_response : &Response, respo
         }
         println!("{} {}", added_digit, "(cycled in) was unused");
     } else { //sums are equal
-        let digit_pair : Vec<u32> = vec![removed_digit, added_digit];
-        same_boat_digits.push(digit_pair);
-        //add_to_same_boat(same_boat_digits, removed_digit, added_digit);
+        //let digit_pair : Vec<u32> = vec![removed_digit, added_digit];
+        //same_boat_digits.push(digit_pair);
+        same_boat_digits = add_boat(same_boat_digits, &removed_digit, &added_digit);
         println!("{} {} {} {}", removed_digit, "and", added_digit, "were added to a same-boat pair");
     }
 
@@ -219,11 +219,15 @@ fn reduce_digits (mut codes: Vec<Vec<u32>>, previous_response : &Response, respo
     (codes, same_boat_digits)
 }
 
-fn get_matching_digits(groups : &Vec<Vec<u32>>, digit : &u32) -> Option<Vec<u32>> {
-    for group in groups {
-        if group.contains(digit) {
-            return Some(group.clone())
+fn get_matching_digits(groups : &HashMap<u32, u32>, digit : &u32) -> Option<Vec<u32>> {
+    let mut matching_digits : Vec<u32> = vec![];
+    if let Some(digit_group_id) = groups.get(digit) {
+        for digit in 0..=9 {
+            if groups.get(&digit) == Some(digit_group_id) {
+                matching_digits.push(digit);
+            }
         }
+        if matching_digits.len() > 0 { return Some(matching_digits) }
     }
     return None
 }
@@ -237,6 +241,9 @@ fn remove_codes_with_digits (mut codes: Vec<Vec<u32>>, digits: &Vec<u32>) -> Vec
         for digit in digits {
             if codes[index].contains(digit) {
                 codes.swap_remove(index);
+                if index >= codes.len() {
+                    break
+                }
             } else {
                 index += 1;
             }
@@ -256,37 +263,63 @@ fn get_boat_index (same_boat_digits: &Vec<Vec<u32>>, check_digit : &u32) -> Opti
     None
 }
 
-fn merge_boats (mut same_boat_digits: Vec<Vec<u32>>) -> Vec<Vec<u32>> {
-    //for (index, mut boat) in same_boat_digits.iter().enumerate() {
-    let mut index : usize = 0;
-    loop {
-        println!("Top of outer loop");
-        if index >= same_boat_digits.len() {
-            println!("Breaking outer loop");
-            break
-        }
-        //for digit in &mut same_boat_digits[index] {
-        let mut digit_index : usize = 0;
-        loop {
-            if digit_index >= same_boat_digits[index].len() {
-                println!("Breaking inner loop");
-                break
+fn add_boat(mut same_boat_digits: HashMap<u32, u32>, digit_1: &u32, digit_2: &u32) -> HashMap<u32, u32> {
+    if let Some(digit_1_group_id) = same_boat_digits.clone().get(digit_1) {
+        if let Some(digit_2_group_id) = same_boat_digits.clone().get(digit_2) {
+            //both digits present
+            //need to change all matched with one key to the other key (will change all digit_2 grouped digits to digit_1 group)
+            for digit in 0..=9 {
+                if same_boat_digits.get(&digit) == Some(digit_2_group_id) {
+                    same_boat_digits.insert(digit, *digit_1_group_id);
+                }
             }
-            println!("{} {} {} {}", "length", same_boat_digits[index].len(), "digit index", digit_index);
-            let digit_to_check = &mut same_boat_digits[index][digit_index].clone();
-            if let Some(boat_index) = get_boat_index(&mut same_boat_digits, digit_to_check) {
-                println!("In SOMEthing");
-                let mut boat_to_append = &mut same_boat_digits[boat_index].clone();
-                same_boat_digits[index].append(boat_to_append);
-                same_boat_digits.remove(boat_index);
-                print_vec_of_vec("same boat digits", &same_boat_digits);
-            }
-            digit_index += 1;
+        } else {
+            //digit 1 present but digit 2 not present
+            same_boat_digits.insert(*digit_2, *digit_1_group_id);
         }
-        index += 1;
+    } else if let Some(digit_2_group_id) = same_boat_digits.get(digit_2) {
+        //digit 2 present but digit 1 not present
+        same_boat_digits.insert(*digit_1, *digit_2_group_id);
+    } else {
+        //neither digit present
+        let group_id = rand::thread_rng().gen_range(0, 2e31 as u32);
+        same_boat_digits.insert(*digit_1, group_id);
+        same_boat_digits.insert(*digit_2, group_id);
     }
     same_boat_digits
 }
+
+//fn merge_boats (mut same_boat_digits: Vec<Vec<u32>>) -> Vec<Vec<u32>> {
+//    //for (index, mut boat) in same_boat_digits.iter().enumerate() {
+//    let mut index : usize = 0;
+//    loop {
+//        println!("Top of outer loop");
+//        if index >= same_boat_digits.len() {
+//            println!("Breaking outer loop");
+//            break
+//        }
+//        //for digit in &mut same_boat_digits[index] {
+//        let mut digit_index : usize = 0;
+//        loop {
+//            if digit_index >= same_boat_digits[index].len() {
+//                println!("Breaking inner loop");
+//                break
+//            }
+//            println!("{} {} {} {}", "length", same_boat_digits[index].len(), "digit index", digit_index);
+//            let digit_to_check = &mut same_boat_digits[index][digit_index].clone();
+//            if let Some(boat_index) = get_boat_index(&mut same_boat_digits, digit_to_check) {
+//                println!("In SOMEthing");
+//                let mut boat_to_append = &mut same_boat_digits[boat_index].clone();
+//                same_boat_digits[index].append(boat_to_append);
+//                same_boat_digits.remove(boat_index);
+//                print_vec_of_vec("same boat digits", &same_boat_digits);
+//            }
+//            digit_index += 1;
+//        }
+//        index += 1;
+//    }
+//    same_boat_digits
+//}
 
 fn generate_all_codes (num_choices: u32, code_length: u32) -> Vec <Vec<u32>> {
     let numeric_codes : Vec<u32> = (0..=get_highest_value_code_num(num_choices, code_length)).map(|i| i as u32).collect();
