@@ -3,12 +3,15 @@ use rand::Rng;
 use std::panic::resume_unwind;
 use std::ops::Index;
 use std::collections::HashMap;
+use std::borrow::Borrow;
 
 //notes
 //broke on: 609800, 909099
 //no digit reduction on: 870979
-
 //broke on: 986455
+//broke on: 833907,
+
+//12/13: broke on: 459155, 584699, 552202
 
 #[derive(Eq, PartialEq)]
 struct Response {
@@ -21,23 +24,28 @@ fn main() {
     let num_choices = 10; //cannot be larger than 10
     let code_length = 6;
 
-    loop {
+    let mut codes_and_guess_totals : HashMap<Vec<u32>, u32> = HashMap::new();
+    let mut games_played = 0;
+
+    while games_played < 10 {
+        let mut total_guesses = 0;
+
         //set of all possible codes
         let mut remaining_codes: Vec<Vec<u32>> = generate_all_codes(num_choices, code_length);
         //let mut same_boat_digits: Vec<Vec<u32>> = vec![];
         let mut same_boat_digits : HashMap<u32, u32> = HashMap::new();
         println!("{} {}", "Codes remaining: ", &mut remaining_codes.len());
 
-        //MANUAL CODE ENTRY
-        let mut input = String::new();
-        println!("\nPlease enter a secret code: ");
-        io::stdin().read_line(&mut input).expect("Not a string");
-        let input = input.trim(); //trim whitespace and save input
-        let actual_code = string_to_vec(input);
+//        //MANUAL CODE ENTRY
+//        let mut input = String::new();
+//        println!("\nPlease enter a secret code: ");
+//        io::stdin().read_line(&mut input).expect("Not a string");
+//        let input = input.trim(); //trim whitespace and save input
+//        let actual_code = string_to_vec(input);
 
         //AUTOMATIC CODE GENERATION
-        //let actual_code = generate_code(num_choices, code_length);
-        //print_code("Actual code: ", &actual_code);
+        let actual_code = generate_code(num_choices, code_length);
+        print_vec("Actual code: ", &actual_code);
 
 //    //MANUAL GUESS ENTRY
 //    loop {
@@ -57,6 +65,7 @@ fn main() {
         let initial_guesses: Vec<Vec<u32>> = vec![num_to_vec(123456), num_to_vec(234567), num_to_vec(345678), num_to_vec(456789), num_to_vec(567890)];
         let mut previous_response = None;
         for guess_code in initial_guesses {
+            total_guesses += 1;
             print_vec("Guessed code: ", &guess_code);
             let response = get_response(&actual_code, guess_code);
             print_response(&response);
@@ -72,22 +81,31 @@ fn main() {
             previous_response = Some(response);
         }
 
-    //MANUAL LAST GUESS CODE ENTRY
-    let mut input = String::new();
-    println!("\nPlease enter a code guess: ");
-    io::stdin().read_line(&mut input).expect("Not a string");
-    let input = input.trim(); //trim whitespace and save input
-    let guess_code = string_to_vec(input);
-    let response = get_response(&actual_code, guess_code);
-    print_response(&response);
+        //MANUAL LAST GUESS CODE ENTRY
+//        let mut input = String::new();
+//        println!("\nPlease enter a code guess: ");
+//        io::stdin().read_line(&mut input).expect("Not a string");
+//        let input = input.trim(); //trim whitespace and save input
+//        let guess_code = string_to_vec(input);
+//        let response = get_response(&actual_code, guess_code);
+//        print_response(&response);
 
-    remaining_codes = remove_codes(remaining_codes, &response);
-    let tuple =
+        //AUTOMATIC LAST GUESS CODE
+        let guess_code = get_sixth_guess(&same_boat_digits);
+        print_vec("Guessed: ", &guess_code);
+        let response = get_response(&actual_code, guess_code);
+        print_response(&response);
+        total_guesses += 1;
+
+        remaining_codes = remove_codes(remaining_codes, &response);
+        println!("{} {}", "Codes remaining before digit reduction: ", &mut remaining_codes.len());
+        let tuple =
         reduce_digits(remaining_codes, previous_response.as_ref().unwrap(), &response, same_boat_digits);
         remaining_codes = tuple.0;
         same_boat_digits = tuple.1;
         println!("{} {}", "Codes remaining: ", &mut remaining_codes.len());
 
+        //PRINT ALL REMAINING CODES
         println!("\n\n\n Remaining codes: ");
         for code in remaining_codes.iter() {
             for digit in code {
@@ -95,7 +113,40 @@ fn main() {
             }
             print!("\n");
         }
+
+        //AUTOMATIC RANDOM GUESSES
+        while remaining_codes.len() > 1 {
+            total_guesses += 1;
+            let guess_code = guess_randomly_from_remaining(&remaining_codes);
+            print_vec("Guessed: ", &guess_code);
+            let response = get_response(&actual_code, guess_code);
+            print_response(&response);
+            remaining_codes = remove_codes(remaining_codes, &response);
+            println!("{} {}", "Codes remaining: ", &mut remaining_codes.len());
+        }
+
+        //PRINT ALL REMAINING CODES
+        println!("\n\n\n Last code remaining: ");
+        for code in remaining_codes.iter() {
+            for digit in code {
+                print!("{}", digit);
+            }
+            print!("\n");
+        }
+
+        //multi-game stats
+        codes_and_guess_totals.insert(actual_code, total_guesses);
+        games_played += 1;
     }
+
+    println!("{:?}", codes_and_guess_totals);
+    let mut total_guesses_all = 0;
+    let mut count = 0;
+    for element in codes_and_guess_totals.values() {
+        total_guesses_all += *element;
+        count += 1;
+    }
+    println!("{} {}", "Average guesses: ", total_guesses_all as f64/count as f64);
 }
 
 fn generate_code (num_choices: u32, code_length: u32) -> Vec<u32> {
@@ -143,6 +194,27 @@ fn remove_codes (mut codes: Vec<Vec<u32>>, response: &Response) -> Vec<Vec<u32>>
         }
     }
     codes
+}
+
+fn get_sixth_guess (same_boat_digits: &HashMap<u32, u32>) -> Vec<u32>{
+    let mut guess = vec![6,7,8,9,0];
+    for digit in 0..=9 {
+        if let Some(_) = same_boat_digits.get(&digit) {
+            if !guess.contains(&digit) {
+                guess.push(digit);
+                break
+            }
+        }
+    }
+    if guess.len() < 6 {
+        guess.push(1)
+    }
+    guess
+}
+
+fn guess_randomly_from_remaining(remaining_codes: &Vec<Vec<u32>>) -> Vec<u32>{
+    let rand_index = rand::thread_rng().gen_range(0, remaining_codes.len());
+    return remaining_codes[rand_index].clone();
 }
 
 fn reduce_digits (mut codes: Vec<Vec<u32>>, previous_response : &Response, response : &Response, mut same_boat_digits : HashMap<u32, u32>) -> (Vec<Vec<u32>>, HashMap<u32, u32>) {
@@ -239,6 +311,9 @@ fn remove_codes_with_digits (mut codes: Vec<Vec<u32>>, digits: &Vec<u32>) -> Vec
             break
         }
         for digit in digits {
+            if index >= codes.len() {
+                break
+            }
             if codes[index].contains(digit) {
                 codes.swap_remove(index);
                 if index >= codes.len() {
@@ -282,7 +357,7 @@ fn add_boat(mut same_boat_digits: HashMap<u32, u32>, digit_1: &u32, digit_2: &u3
         same_boat_digits.insert(*digit_1, *digit_2_group_id);
     } else {
         //neither digit present
-        let group_id = rand::thread_rng().gen_range(0, 2e31 as u32);
+        let group_id = rand::thread_rng().gen_range(0, 1_000_000);
         same_boat_digits.insert(*digit_1, group_id);
         same_boat_digits.insert(*digit_2, group_id);
     }
