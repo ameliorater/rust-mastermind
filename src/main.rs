@@ -2,10 +2,13 @@ use std::io;
 use rand::Rng;
 use std::panic::resume_unwind;
 use std::ops::Index;
+use std::collections::HashMap;
 
 //notes
 //broke on: 609800, 909099
 //no digit reduction on: 870979
+
+//broke on: 986455
 
 #[derive(Eq, PartialEq)]
 struct Response {
@@ -21,7 +24,8 @@ fn main() {
     loop {
         //set of all possible codes
         let mut remaining_codes: Vec<Vec<u32>> = generate_all_codes(num_choices, code_length);
-        let mut same_boat_digits: Vec<Vec<u32>> = vec![];
+        //let mut same_boat_digits: Vec<Vec<u32>> = vec![];
+        let mut same_boat_digits : HashMap<u32, u32> = HashMap::new();
         println!("{} {}", "Codes remaining: ", &mut remaining_codes.len());
 
         //MANUAL CODE ENTRY
@@ -199,13 +203,13 @@ fn reduce_digits (mut codes: Vec<Vec<u32>>, previous_response : &Response, respo
             for digit in matching_digits {
                 if !unused_digits.contains(&digit) { unused_digits.push(digit) }
             }
-            unused_digits.push(matching_digit);
             println!("YAY! Removed a matching digit via same-boat pair");
         }
         println!("{} {}", added_digit, "(cycled in) was unused");
     } else { //sums are equal
         let digit_pair : Vec<u32> = vec![removed_digit, added_digit];
         same_boat_digits.push(digit_pair);
+        //add_to_same_boat(same_boat_digits, removed_digit, added_digit);
         println!("{} {} {} {}", removed_digit, "and", added_digit, "were added to a same-boat pair");
     }
 
@@ -218,7 +222,7 @@ fn reduce_digits (mut codes: Vec<Vec<u32>>, previous_response : &Response, respo
 fn get_matching_digits(groups : &Vec<Vec<u32>>, digit : &u32) -> Option<Vec<u32>> {
     for group in groups {
         if group.contains(digit) {
-            return Some(*group)
+            return Some(group.clone())
         }
     }
     return None
@@ -231,7 +235,7 @@ fn remove_codes_with_digits (mut codes: Vec<Vec<u32>>, digits: &Vec<u32>) -> Vec
             break
         }
         for digit in digits {
-            if &codes[index].contains(digit) {
+            if codes[index].contains(digit) {
                 codes.swap_remove(index);
             } else {
                 index += 1;
@@ -241,10 +245,10 @@ fn remove_codes_with_digits (mut codes: Vec<Vec<u32>>, digits: &Vec<u32>) -> Vec
     codes
 }
 
-fn get_boat_index (same_boat_digits: &Vec<Vec<u32>>, check_digit : u32) -> Option<usize> {
+fn get_boat_index (same_boat_digits: &Vec<Vec<u32>>, check_digit : &u32) -> Option<usize> {
     for (index, boat) in same_boat_digits.iter().enumerate() {
         for digit in boat {
-            if *digit == check_digit {
+            if digit == check_digit {
                 return Some(index)
             }
         }
@@ -252,8 +256,36 @@ fn get_boat_index (same_boat_digits: &Vec<Vec<u32>>, check_digit : u32) -> Optio
     None
 }
 
-fn merge_boats () {
-
+fn merge_boats (mut same_boat_digits: Vec<Vec<u32>>) -> Vec<Vec<u32>> {
+    //for (index, mut boat) in same_boat_digits.iter().enumerate() {
+    let mut index : usize = 0;
+    loop {
+        println!("Top of outer loop");
+        if index >= same_boat_digits.len() {
+            println!("Breaking outer loop");
+            break
+        }
+        //for digit in &mut same_boat_digits[index] {
+        let mut digit_index : usize = 0;
+        loop {
+            if digit_index >= same_boat_digits[index].len() {
+                println!("Breaking inner loop");
+                break
+            }
+            println!("{} {} {} {}", "length", same_boat_digits[index].len(), "digit index", digit_index);
+            let digit_to_check = &mut same_boat_digits[index][digit_index].clone();
+            if let Some(boat_index) = get_boat_index(&mut same_boat_digits, digit_to_check) {
+                println!("In SOMEthing");
+                let mut boat_to_append = &mut same_boat_digits[boat_index].clone();
+                same_boat_digits[index].append(boat_to_append);
+                same_boat_digits.remove(boat_index);
+                print_vec_of_vec("same boat digits", &same_boat_digits);
+            }
+            digit_index += 1;
+        }
+        index += 1;
+    }
+    same_boat_digits
 }
 
 fn generate_all_codes (num_choices: u32, code_length: u32) -> Vec <Vec<u32>> {
