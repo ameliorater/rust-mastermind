@@ -12,6 +12,9 @@ use std::borrow::Borrow;
 //broke on: 833907,
 
 //12/13: broke on: 459155, 584699, 552202
+//zero codes on: 034932, 711052
+
+//12-16 broke on: 005432
 
 #[derive(Eq, PartialEq)]
 struct Response {
@@ -36,16 +39,16 @@ fn main() {
         let mut same_boat_digits : HashMap<u32, u32> = HashMap::new();
         println!("{} {}", "Codes remaining: ", &mut remaining_codes.len());
 
-//        //MANUAL CODE ENTRY
-//        let mut input = String::new();
-//        println!("\nPlease enter a secret code: ");
-//        io::stdin().read_line(&mut input).expect("Not a string");
-//        let input = input.trim(); //trim whitespace and save input
-//        let actual_code = string_to_vec(input);
+        //MANUAL CODE ENTRY
+        let mut input = String::new();
+        println!("\nPlease enter a secret code: ");
+        io::stdin().read_line(&mut input).expect("Not a string");
+        let input = input.trim(); //trim whitespace and save input
+        let actual_code = string_to_vec(input);
 
-        //AUTOMATIC CODE GENERATION
-        let actual_code = generate_code(num_choices, code_length);
-        print_vec("Actual code: ", &actual_code);
+//        //AUTOMATIC CODE GENERATION
+//        let actual_code = generate_code(num_choices, code_length);
+//        print_vec("Actual code: ", &actual_code);
 
 //    //MANUAL GUESS ENTRY
 //    loop {
@@ -79,6 +82,7 @@ fn main() {
             println!("{} {}", "Codes remaining: ", &mut remaining_codes.len());
             println!("{} {:?}", "Paired digits: ", &same_boat_digits);
             previous_response = Some(response);
+            println!("{} {}", "Code still in list?", remaining_codes.contains(&actual_code));
         }
 
         //MANUAL LAST GUESS CODE ENTRY
@@ -90,7 +94,16 @@ fn main() {
 //        let response = get_response(&actual_code, guess_code);
 //        print_response(&response);
 
-        //AUTOMATIC LAST GUESS CODE
+        //PRINT ALL REMAINING CODES
+        println!("\n\n\n Remaining codes: ");
+        for code in remaining_codes.iter() {
+            for digit in code {
+                print!("{}", digit);
+            }
+            print!("\n");
+        }
+
+        //AUTOMATIC LAST GUESS
         let guess_code = get_sixth_guess(&same_boat_digits);
         print_vec("Guessed: ", &guess_code);
         let response = get_response(&actual_code, guess_code);
@@ -125,7 +138,26 @@ fn main() {
             println!("{} {}", "Codes remaining: ", &mut remaining_codes.len());
         }
 
-        //PRINT ALL REMAINING CODES
+//        //MANUAL GUESS ENTRY LOOP
+//        while remaining_codes.len() > 1 {
+//            let mut input = String::new();
+//            println!("\nPlease enter a code guess: ");
+//            io::stdin().read_line(&mut input).expect("Not a string");
+//            let input = input.trim(); //trim whitespace and save input
+//            let guess_code = string_to_vec(input);
+//            let response = get_response(&actual_code, guess_code);
+//            print_response(&response);
+//
+//            println!("\n\n\n Remaining codes: ");
+//            for code in remaining_codes.iter() {
+//                for digit in code {
+//                    print!("{}", digit);
+//                }
+//                print!("\n");
+//            }
+//        }
+
+        //PRINT ANSWER
         println!("\n\n\n Last code remaining: ");
         for code in remaining_codes.iter() {
             for digit in code {
@@ -133,6 +165,7 @@ fn main() {
             }
             print!("\n");
         }
+        println!("{} {}", "Guesses: ", total_guesses);
 
         //multi-game stats
         codes_and_guess_totals.insert(actual_code, total_guesses);
@@ -163,12 +196,18 @@ fn generate_code (num_choices: u32, code_length: u32) -> Vec<u32> {
 fn get_response (actual_code: &Vec<u32>, guess_code : Vec<u32>) -> Response {
     let mut right_place = 0;
     let mut wrong_place = 0;
+    let mut digits_used : HashMap<u32, bool> = HashMap::new();
+    //initialize all to false
+    for digit in 0..=9 {
+        digits_used.insert(digit, false);
+    }
 
     for index in 0..actual_code.len() {
         if guess_code[index] == actual_code[index] {
             right_place += 1;
-        } else if guess_code.contains(&actual_code[index]) {
+        } else if actual_code.contains(&guess_code[index]) && !digits_used[&guess_code[index]] { //changed 12-16
             wrong_place += 1;
+            digits_used.insert(guess_code[index], true);
         }
     }
     Response { guess_code, right_place, wrong_place }
