@@ -16,7 +16,7 @@ use std::borrow::Borrow;
 
 //12-16 broke on: 005432
 
-#[derive(Eq, PartialEq)]
+#[derive(Eq, PartialEq, Clone)]
 struct Response {
     guess_code: Vec<u32>,
     right_place: u32, //# digits correct and in right place
@@ -32,6 +32,7 @@ fn main() {
 
     while games_played < 10 {
         let mut total_guesses = 0;
+        let mut automatic_mode = false;
 
         //set of all possible codes
         let mut remaining_codes: Vec<Vec<u32>> = generate_all_codes(num_choices, code_length);
@@ -41,9 +42,15 @@ fn main() {
 
         //MANUAL CODE ENTRY
         let mut input = String::new();
-        println!("\nPlease enter a secret code: ");
+        println!("\nPlease enter a secret code: \nIf you would like the computer to automatically calculate responses,\nadd an 'A' at the end of your code");
         io::stdin().read_line(&mut input).expect("Not a string");
-        let input = input.trim(); //trim whitespace and save input
+        let mut input = input.trim(); //trim whitespace and save input
+        let mut temp_string = input.replace("", "");
+        if input.contains("A") {
+            temp_string = input.replace("A", "");
+            automatic_mode = true;
+        }
+        input = temp_string.as_ref();
         let actual_code = string_to_vec(input);
 
 //        //AUTOMATIC CODE GENERATION
@@ -67,12 +74,34 @@ fn main() {
         //AUTOMATIC GUESSING
         let initial_guesses: Vec<Vec<u32>> = vec![num_to_vec(123456), num_to_vec(234567), num_to_vec(345678), num_to_vec(456789), num_to_vec(567890)];
         let mut previous_response = None;
+        let mut response = Response { guess_code: vec![0, 0, 0, 0, 0], right_place: 0, wrong_place: 0};
         for guess_code in initial_guesses {
+            if remaining_codes.len() <= 1 {
+                break
+            }
             total_guesses += 1;
-            print_vec("Guessed code: ", &guess_code);
-            let response = get_response(&actual_code, guess_code);
-            print_response(&response);
-            remaining_codes = remove_codes(remaining_codes, &response);
+            print_vec("Guess: ", &guess_code);
+            if automatic_mode {
+                response = get_response(&actual_code, guess_code);
+                print_response(&response);
+            } else {
+                loop {
+                    let mut input = String::new();
+                    println!("\nPlease enter a response in the form:\n\
+                    First digit: number of digits correct and in the right place\n\
+                    Second digit: number of digits correct and in the wrong place\n\
+                    Example: 60 for the guess matching your code exactly");
+                    io::stdin().read_line(&mut input).expect("Not a string");
+                    let input = input.trim(); //trim whitespace and save input
+                    if let Some(response) = string_to_response(input, &guess_code) {
+                        break
+                    } else {
+                        println!("Invalid input, please try again");
+                        continue
+                    }
+                }
+            }
+            remaining_codes = remove_codes(remaining_codes, &(response.clone()));
             println!("{} {}", "Codes remaining before digit reduction: ", &mut remaining_codes.len());
             if let Some(previous_response) = previous_response {
                 let tuple = reduce_digits(remaining_codes, &previous_response, &response, same_boat_digits);
@@ -81,7 +110,7 @@ fn main() {
             }
             println!("{} {}", "Codes remaining: ", &mut remaining_codes.len());
             println!("{} {:?}", "Paired digits: ", &same_boat_digits);
-            previous_response = Some(response);
+            previous_response = Some(response.clone());
             println!("{} {}", "Code still in list?", remaining_codes.contains(&actual_code));
         }
 
@@ -211,6 +240,21 @@ fn get_response (actual_code: &Vec<u32>, guess_code : Vec<u32>) -> Response {
         }
     }
     Response { guess_code, right_place, wrong_place }
+}
+
+fn string_to_response (input : &str, guess_code : &Vec<u32>) -> Option<Response> {
+    //let input = input as String;
+    if let Some(right_place) = input.chars().next() {
+        let right_place_int = right_place as u32 - '0' as u32;
+        if let Some(wrong_place) = input.chars().next() {
+            let wrong_place_int = wrong_place as u32 - '0' as u32;
+            Some(Response { guess_code: guess_code.clone(), right_place: right_place_int, wrong_place : wrong_place_int })
+        } else {
+            None
+        }
+    } else {
+        None
+    }
 }
 
 fn responses_equal (response1: &Response, response2 : &Response) -> bool {
