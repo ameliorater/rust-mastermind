@@ -63,57 +63,57 @@ fn main() {
 //        println!("{} {}", "Codes remaining: ", &mut remaining_codes.len());
 //    }
 
-//        //AUTOMATIC GUESSING
-//        let initial_guesses: Vec<Vec<u32>> = vec![num_to_vec(123456), num_to_vec(253647), num_to_vec(376458), num_to_vec(486579), num_to_vec(587690)];
-//        let mut last_response_reduced_index = 1;
-//        let mut first_loop = true;
-//        let mut response_history : Vec<Response> = Vec::new();
-//        for guess_code in initial_guesses {
-//            let mut response = Response::new(Vec::new(), 0, 0);
-//            if remaining_codes.len() <= 1 {
-//                break
-//            }
-//            total_guesses += 1;
-//            print_vec("Guess: ", &guess_code);
-//            if automatic_mode {
-//                response = get_response(&actual_code, guess_code);
-//                print_response(&response);
-//            } else {
-//                let mut input = String::new();
-//                if first_loop {
-//                    println!("\nPlease enter a response in the form:\n\
-//                    First digit: number of digits correct and in the right place\n\
-//                    Second digit: number of digits correct and in the wrong place\n\
-//                    Example: '60' if the guess matches your code exactly\n\
-//                    (please be patient as the second guess can take up to a minute)");
-//                    first_loop = false;
-//                } else {
-//                    println!("Please enter your response: ");
-//                }
-//                io::stdin().read_line(&mut input).expect("Not a string");
-//                let input = input.trim(); //trim whitespace
-//                response = string_to_response(input, &guess_code);
-//            }
-//            remaining_codes = remove_codes(remaining_codes, response.clone());
-//            println!("{} {}", "Codes remaining before digit reduction: ", &mut remaining_codes.len());
-//            if response_history.len() >= 2 && remaining_codes.len() < 10000 {
-//                //for speed, don't reduce digits until remaining_codes is a small enough
-//                for i in last_response_reduced_index..response_history.len() {
-//                    println!("reducing digits");
-//                    let tuple =
-//                        reduce_digits(remaining_codes,
-//                                      response_history.get(i-1).unwrap(),
-//                                      response_history.get(i).unwrap(), same_boat_digits);
-//                    remaining_codes = tuple.0;
-//                    same_boat_digits = tuple.1;
-//                    last_response_reduced_index += 1;
-//                }
-//            }
-//            println!("{} {}", "Codes remaining: ", &mut remaining_codes.len());
-//            println!("{} {:?}", "Paired digits: ", &same_boat_digits);
-//            response_history.push(response);
-//            //println!("{} {}", "Code still in list?", remaining_codes.contains(&actual_code));
-//        }
+        //AUTOMATIC GUESSING
+        let initial_guesses: Vec<Vec<u32>> = vec![num_to_vec(123456), num_to_vec(253647), num_to_vec(376458), num_to_vec(486579), num_to_vec(587690)];
+        let mut last_response_reduced_index = 1;
+        let mut first_loop = true;
+        let mut response_history : Vec<Response> = Vec::new();
+        for guess_code in initial_guesses {
+            let mut response = Response::new(Vec::new(), 0, 0);
+            if remaining_codes.len() <= 1 {
+                break
+            }
+            total_guesses += 1;
+            print_vec("Guess: ", &guess_code);
+            if automatic_mode {
+                response = get_response(&actual_code, guess_code);
+                print_response(&response);
+            } else {
+                let mut input = String::new();
+                if first_loop {
+                    println!("\nPlease enter a response in the form:\n\
+                    First digit: number of digits correct and in the right place\n\
+                    Second digit: number of digits correct and in the wrong place\n\
+                    Example: '60' if the guess matches your code exactly\n\
+                    (please be patient as the second guess can take up to a minute)");
+                    first_loop = false;
+                } else {
+                    println!("Please enter your response: ");
+                }
+                io::stdin().read_line(&mut input).expect("Not a string");
+                let input = input.trim(); //trim whitespace
+                response = string_to_response(input, &guess_code);
+            }
+            remaining_codes = remove_codes(remaining_codes, response.clone());
+            println!("{} {}", "Codes remaining before digit reduction: ", &mut remaining_codes.len());
+            if response_history.len() >= 2 && remaining_codes.len() < 10000 {
+                //for speed, don't reduce digits until remaining_codes is a small enough
+                for i in last_response_reduced_index..response_history.len() {
+                    println!("reducing digits");
+                    let tuple =
+                        reduce_digits(remaining_codes,
+                                      response_history.get(i-1).unwrap(),
+                                      response_history.get(i).unwrap(), same_boat_digits);
+                    remaining_codes = tuple.0;
+                    same_boat_digits = tuple.1;
+                    last_response_reduced_index += 1;
+                }
+            }
+            println!("{} {}", "Codes remaining: ", &mut remaining_codes.len());
+            println!("{} {:?}", "Paired digits: ", &same_boat_digits);
+            response_history.push(response);
+            //println!("{} {}", "Code still in list?", remaining_codes.contains(&actual_code));
+        }
 
         //MANUAL LAST GUESS CODE ENTRY
 //        let mut input = String::new();
@@ -133,31 +133,31 @@ fn main() {
 //            print!("\n");
 //        }
 
-//        //AUTOMATIC SIXTH GUESS
-//        let guess_code = get_sixth_guess(&same_boat_digits);
-//        print_vec("Guessed: ", &guess_code);
-//        let mut response = Response { guess_code: vec![0, 0, 0, 0, 0, 0], right_place: 0, wrong_place: 0};
-//        if automatic_mode {
-//            response = get_response(&actual_code, guess_code);
-//            print_response(&response);
-//        } else {
-//            println!("Please enter your response: ");
-//            let mut input = String::new();
-//            io::stdin().read_line(&mut input).expect("Not a string");
-//            let input = input.trim(); //trim whitespace
-//            response = string_to_response(input, &guess_code);
-//        }
-//        total_guesses += 1;
-//
-//        remaining_codes = remove_codes(remaining_codes, response);
-//        //println!("{} {}", "Codes remaining before digit reduction: ", &mut remaining_codes.len());
-//        let tuple =
-//            reduce_digits(remaining_codes,
-//                          &response_history[last_response_reduced_index-1],
-//                          response_history.get(last_response_reduced_index).unwrap(), same_boat_digits);
-//        remaining_codes = tuple.0;
-//        same_boat_digits = tuple.1;
-//        //println!("{} {}", "Codes remaining: ", &mut remaining_codes.len());
+        //AUTOMATIC SIXTH GUESS
+        let guess_code = get_sixth_guess(&same_boat_digits);
+        print_vec("Guessed: ", &guess_code);
+        let mut response = Response { guess_code: vec![0, 0, 0, 0, 0, 0], right_place: 0, wrong_place: 0};
+        if automatic_mode {
+            response = get_response(&actual_code, guess_code);
+            print_response(&response);
+        } else {
+            println!("Please enter your response: ");
+            let mut input = String::new();
+            io::stdin().read_line(&mut input).expect("Not a string");
+            let input = input.trim(); //trim whitespace
+            response = string_to_response(input, &guess_code);
+        }
+        total_guesses += 1;
+
+        remaining_codes = remove_codes(remaining_codes, response);
+        //println!("{} {}", "Codes remaining before digit reduction: ", &mut remaining_codes.len());
+        let tuple =
+            reduce_digits(remaining_codes,
+                          &response_history[last_response_reduced_index-1],
+                          response_history.get(last_response_reduced_index).unwrap(), same_boat_digits);
+        remaining_codes = tuple.0;
+        same_boat_digits = tuple.1;
+        //println!("{} {}", "Codes remaining: ", &mut remaining_codes.len());
 
         //PRINT ALL REMAINING CODES
 //        println!("\n\n\n Remaining codes: ");
