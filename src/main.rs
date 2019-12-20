@@ -190,10 +190,10 @@ fn remove_codes (mut codes: Vec<Vec<u32>>, guess_code: Vec<u32>, response: Respo
         } else {
             index += 1;
         }
-//        if codes.len() % 100000 == 0 {
-//            println!("{} {}", "Codes remaining: ", codes.len());
-//            println!("{} {}", "Index: ", index);
-//        }
+        if codes.len() % 100000 == 0 {
+            //println!("{} {}", "Codes remaining: ", codes.len());
+            //println!("{} {}", "Index: ", index);
+        }
     }
     codes
 }
