@@ -3,6 +3,7 @@ use rand::Rng;
 use std::collections::HashMap;
 use std::panic::resume_unwind;
 use std::hash::Hash;
+use std::cmp;
 
 #[macro_use]
 extern crate derive_new;
@@ -13,79 +14,94 @@ struct Response {
     wrong_place: u32, //# digits correct and in the wrong place
 }
 
-fn get_sample (codes : &Vec<Vec<u32>>, length: usize) -> Vec<Vec<u32>> {
-    let mut sample_codes: Vec<Vec<u32>> = Vec::new();
-    let indices = get_random_ints(length, codes.len());
-    for i in 0..codes.len() {
-        if indices.contains(&i) {
-            sample_codes.push(codes[i].clone())
-        }
-    }
-    sample_codes
-}
-
-fn get_random_ints (length: usize, max: usize) -> Vec<usize> {
-    let mut return_list = Vec::new();
-    for i in 0..length {
-        return_list[i] = rand::thread_rng().gen_range(0, max)
-    }
-    return_list
-}
-
-fn get_all_responses () -> Vec<Response> {
-    let mut responses = Vec::new();
-    for n in 0..6 {
-        for i in 0..(6-n) {
-            responses.push( Response{ right_place: n, wrong_place: i } )
-        }
-    }
-    responses
-}
-
-
 fn main() {
-    let sample_size = 1000;
+    let sample_size = 500;
     let num_choices = 10;
     let code_length = 6;
 
-    //AUTOMATIC CODE GENERATION
-    let actual_code = generate_code(num_choices, code_length);
-    print_vec("Actual code: ", &actual_code);
+    let mut games_played : f32 = 0.0;
+    let mut sum_guess_counts: f32 = 0.0;
 
+    while games_played < 10.0 {
 
-    let mut score: HashMap<Vec<u32>, u32> = HashMap::new(); //keys are guesses, values are scores
-    let mut remaining_codes: Vec<Vec<u32>> = generate_all_codes(num_choices, code_length);
+        //AUTOMATIC CODE GENERATION
+        let actual_code = generate_code(num_choices, code_length);
+        print_vec("Actual code: ", &actual_code);
 
-    let guess_sample = get_sample(&remaining_codes, sample_size);
-    //should answer_sample be the same as guess_sample?
-    let answer_sample = get_sample(&remaining_codes, sample_size);
+        let mut remaining_codes: Vec<Vec<u32>> = generate_all_codes(num_choices, code_length);
 
-    for guess in guess_sample {
-        let mut freq: HashMap<Response, u32> = HashMap::new();
-        for answer in &answer_sample {
-            let freq_key = get_response(answer, &guess);
-            if let Some(freq_val) = freq.get(&freq_key) {
-                freq.insert(freq_key, freq_val + 1);
-            } else {
-                freq.insert(freq_key, 1);
+        //arbitrary first guess
+        let first_guess = vec![3, 1, 4, 1, 5, 9];
+        print_vec("Guess: ", &first_guess);
+        let response = get_response(&actual_code, &first_guess);
+        remaining_codes = remove_codes(remaining_codes, first_guess, response);
+        println!("{}{}", "Codes remaining: ", remaining_codes.len());
+
+        let mut guess_count = 1;
+        while remaining_codes.len() > 1 {
+            guess_count += 1;
+
+            let mut scores: HashMap<Vec<u32>, u32> = HashMap::new(); //keys are guesses, values are scores
+
+            let guess_sample = get_sample(&remaining_codes, sample_size);
+            //should answer_sample be the same as guess_sample?
+            let answer_sample = get_sample(&remaining_codes, sample_size);
+
+            for guess in guess_sample {
+                let mut freq: HashMap<Response, u32> = HashMap::new();
+                for answer in &answer_sample {
+                    let freq_key = get_response(answer, &guess);
+                    if let Some(freq_val) = freq.get(&freq_key) {
+                        freq.insert(freq_key, freq_val + 1);
+                    } else {
+                        freq.insert(freq_key, 1);
+                    }
+                }
+
+                let mut elim: HashMap<Response, u32> = HashMap::new();
+                for response in get_all_responses() {
+                    for answer in &answer_sample {
+                        if get_response(&guess, answer) != response {
+                            if let Some(elim_val) = elim.get(&response) {
+                                elim.insert(response.clone(), elim_val + 1);
+                            } else {
+                                elim.insert(response.clone(), 1);
+                            }
+                        }
+                    }
+                }
+
+                let mut sum = 0;
+                for response in get_all_responses() {
+                    if let Some(freq_val) = freq.get(&response) {
+                        sum += freq_val * elim[&response]
+                    }
+                }
+                scores.insert(guess, sum);
             }
-        }
 
-        let mut elim: HashMap<Response, u32> = HashMap::new();
-        for response in get_all_responses() {
-            for answer in &answer_sample {
-                if get_response(&guess, answer) != response {
-                    *elim.get_mut(&response).unwrap() += 1;
+            let mut max_score: u32 = 0;
+            let mut best_guess = Vec::new();
+            for code in scores.keys() {
+                if let Some(score) = scores.get(code) {
+                    if score >= &max_score {
+                        max_score = *score;
+                        best_guess = code.to_vec();
+                    }
                 }
             }
-        }
 
-        let mut sum = 0;
-        for response in get_all_responses() {
-            sum += freq[&response] * elim[&response]
+            print_vec("Guess: ", &best_guess);
+            let response = get_response(&actual_code, &best_guess);
+            remaining_codes = remove_codes(remaining_codes, best_guess, response);
+            println!("{}{}", "Codes remaining: ", remaining_codes.len());
         }
-        score.insert(guess, sum);
+        println!("{}{}", "Guesses: ", guess_count);
+        games_played += 1.0;
+        sum_guess_counts += guess_count as f32;
     }
+
+    println!("{}{}", "Average Guesses: ", sum_guess_counts/games_played);
 }
 
 
@@ -120,6 +136,37 @@ fn get_response (actual_code: &Vec<u32>, guess_code : &Vec<u32>) -> Response {
     Response { right_place, wrong_place }
 }
 
+
+fn get_sample (codes : &Vec<Vec<u32>>, length: usize) -> Vec<Vec<u32>> {
+    if codes.len() < length { return codes.clone() }
+    let mut sample_codes: Vec<Vec<u32>> = Vec::new();
+    let indices = get_random_ints(length, codes.len());
+    for i in 0..codes.len() {
+        if indices.contains(&i) {
+            sample_codes.push(codes[i].clone())
+        }
+    }
+    sample_codes
+}
+
+fn get_random_ints (length: usize, max: usize) -> Vec<usize> {
+    let mut return_list = Vec::new();
+    for i in 0..length {
+        return_list.push(rand::thread_rng().gen_range(0, max));
+    }
+    return_list
+}
+
+fn get_all_responses () -> Vec<Response> {
+    let mut responses = Vec::new();
+    for n in 0..6 {
+        for i in 0..(6-n) {
+            responses.push( Response{ right_place: n, wrong_place: i } )
+        }
+    }
+    responses
+}
+
 fn string_to_response (input : &str, guess_code : &Vec<u32>) -> Response {
     let right_place = &input[0..1];
     let right_place = right_place.chars().next().unwrap();
@@ -130,6 +177,32 @@ fn string_to_response (input : &str, guess_code : &Vec<u32>) -> Response {
     let wrong_place = wrong_place as u32 - '0' as u32;
 
     Response { right_place, wrong_place }
+}
+
+fn remove_codes (mut codes: Vec<Vec<u32>>, guess_code: Vec<u32>, response: Response) -> Vec<Vec<u32>> {
+    let mut index = 0;
+    loop {
+        if index >= codes.len() {
+            break
+        }
+        if !responses_equal(&get_response(&codes[index], &guess_code), &response) {
+            codes.swap_remove(index);
+        } else {
+            index += 1;
+        }
+//        if codes.len() % 100000 == 0 {
+//            println!("{} {}", "Codes remaining: ", codes.len());
+//            println!("{} {}", "Index: ", index);
+//        }
+    }
+    codes
+}
+
+fn responses_equal (response1: &Response, response2 : &Response) -> bool {
+    if response1.right_place == response2.right_place && response1.wrong_place == response2.wrong_place {
+        return true
+    }
+    false
 }
 
 fn remove_codes_with_digits (mut codes: Vec<Vec<u32>>, digits: &Vec<u32>) -> Vec<Vec<u32>> {
