@@ -295,10 +295,10 @@ fn remove_codes (mut codes: Vec<Vec<u32>>, response: Response) -> Vec<Vec<u32>> 
         } else {
             index += 1;
         }
-        if codes.len() % 100000 == 0 {
-            println!("{} {}", "Codes remaining: ", codes.len());
-            println!("{} {}", "Index: ", index);
-        }
+//        if codes.len() % 100000 == 0 {
+//            println!("{} {}", "Codes remaining: ", codes.len());
+//            println!("{} {}", "Index: ", index);
+//        }
     }
     codes
 }
