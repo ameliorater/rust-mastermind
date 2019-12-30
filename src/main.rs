@@ -13,17 +13,30 @@ struct Response {
     right_place: u32, //# digits correct and in right place
     wrong_place: u32, //# digits correct and in the wrong place
 }
+impl std::fmt::Display for Response {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}{}", self.right_place, self.wrong_place)
+    }
+}
+
 
 fn main() {
     let num_choices = 10; //cannot be larger than 10
     let code_length = 6;
-    let number_of_games = 10; //how many games to play before quitting program
+    let number_of_games = 0; //how many games to play before quitting program
 
     let mut codes_and_guess_totals : HashMap<Vec<u32>, u32> = HashMap::new();
     let mut games_played = 0;
 
 //    let subbed_digits = get_subbed_digits(&num_to_vec(055212), &num_to_vec(000003));
 //    println!("subbed in: {}, subbed out: {}", subbed_digits.0.unwrap(), subbed_digits.1.unwrap());
+
+    let response_1 = get_response(&num_to_vec(193968), &num_to_vec(892935));
+    let response_2 = get_response(&num_to_vec(133200), &num_to_vec(892935));
+
+    println!("response 1: {}", response_1);
+    println!("response 1: {}", response_2);
+    println!("{}", responses_equal(&response_1, &response_2));
 
     while games_played < number_of_games {
         let mut total_guesses = 0;
@@ -53,18 +66,19 @@ fn main() {
 
         //RANDOM FIRST GUESS
         let guess_code = guess_randomly_from_remaining(&remaining_codes);
-        let mut previous_response: Response = Response::new( vec![0,0,0,0,0,0], 0, 0);
+        let mut previous_responses: Vec<Response> = Vec::new();
         print_vec("Guessed:     ", &guess_code);
         //TODO: clean up this duplicate code
         if automatic_mode {
-            previous_response = get_response(&actual_code, &guess_code);
-            print_response(&previous_response);
+            let first_response = get_response(&actual_code, &guess_code);
+            print_response(&first_response);
+            previous_responses.push(first_response);
         } else {
             println!("Please enter your response: ");
             let mut input = String::new();
             io::stdin().read_line(&mut input).expect("Not a string");
             let input = input.trim(); //trim whitespace
-            previous_response = string_to_response(input, &guess_code);
+            previous_responses.push(string_to_response(input, &guess_code));
         }
         total_guesses += 1;
 
@@ -72,7 +86,16 @@ fn main() {
         while remaining_codes.len() > 1 {
             total_guesses += 1;
 
-            let guess_code = get_next_guess(&remaining_codes, &digit_info, &previous_response);
+            let mut guess_code= Vec::new();
+//            if let Some(guess_code_op) = get_smart_guess(&remaining_codes, &digit_info, &previous_responses) {
+//                guess_code = guess_code_op;
+//            } else if total_guesses < 4 {
+                if let Some(guess_code_op) = get_smart_guess(&remaining_codes, &digit_info, &previous_responses) {
+                    guess_code = guess_code_op;
+                }
+            else {
+                guess_code = guess_randomly_from_remaining(&remaining_codes);
+            }
             print_vec("Guessed: ", &guess_code);
 
             let response;
@@ -91,13 +114,13 @@ fn main() {
             println!("Codes remaining BEFORE digit elimination: {}", remaining_codes.len());
 
             //use digit elimination to update digit_info and further reduce remaining_codes
-            digit_info = update_digit_info(&response, &previous_response, digit_info);
+            digit_info = update_digit_info(&response, &previous_responses, digit_info);
 //            if remaining_codes.len() < 20 {
 //                print_vec_of_vec("remaining codes: ", &remaining_codes);
 //            }
             remaining_codes = remove_codes_by_digit(remaining_codes, &digit_info);
             println!("Codes remaining AFTER digit elimination: {}", remaining_codes.len());
-            previous_response = response;
+            previous_responses.push(response);
             println!("{:?}", digit_info);
             if !remaining_codes.contains(&actual_code) {
                 println!("LOST IT!!");
@@ -215,9 +238,6 @@ fn remove_codes (mut codes: Vec<Vec<u32>>, response: &Response) -> Vec<Vec<u32>>
 }
 
 fn remove_codes_by_digit (mut codes: Vec<Vec<u32>>, digit_info: &HashMap<u32, u32>) -> Vec<Vec<u32>> {
-
-    //TODO: REMOVE IF IT DOESN'T CONTAIN A USED DIGIT!!
-
     //map contains: k:digit, v:status (0 for unused and 1 for used)
     let mut known_status_digits: HashMap<u32, u32> = HashMap::new();
     for (digit, status) in digit_info {
@@ -234,6 +254,7 @@ fn remove_codes_by_digit (mut codes: Vec<Vec<u32>>, digit_info: &HashMap<u32, u3
         'digit_loop: for (digit, status) in &known_status_digits {
             if let Some(code) = codes.get(index) {
                 if (code.contains(digit) && *status == 0 as u32) || (!code.contains(digit) && *status == 1 as u32) {
+                    if index % 1000 == 0 {print_vec("code removed by digit:", codes.get(index).unwrap()) }
                     codes.swap_remove(index);
                     code_removed = true;
                     continue 'digit_loop
@@ -247,33 +268,35 @@ fn remove_codes_by_digit (mut codes: Vec<Vec<u32>>, digit_info: &HashMap<u32, u3
     codes
 }
 
-fn update_digit_info (current_response: &Response, previous_response: &Response, mut digit_info: HashMap<u32, u32>) -> HashMap<u32, u32> {
-    let (digit_subbed_in, digit_subbed_out)
-        = get_subbed_digits(&current_response.guess_code, &previous_response.guess_code);
+fn update_digit_info (current_response: &Response, previous_responses: &Vec<Response>, mut digit_info: HashMap<u32, u32>) -> HashMap<u32, u32> {
+    for previous_response in previous_responses {
+        let (digit_subbed_in, digit_subbed_out)
+            = get_subbed_digits(&current_response.guess_code, &previous_response.guess_code);
 
-    //cannot add any digit info, return original map
-    if digit_subbed_out == None || digit_subbed_in == None {
-        return digit_info
-    }
+        //cannot add any digit info, return original map
+        if digit_subbed_out == None || digit_subbed_in == None {
+            return digit_info
+        }
 
-    let previous_sum = &previous_response.right_place + &previous_response.wrong_place;
-    let current_sum = &current_response.right_place + &current_response.wrong_place;
+        let previous_sum = &previous_response.right_place + &previous_response.wrong_place;
+        let current_sum = &current_response.right_place + &current_response.wrong_place;
 
-    if current_sum > previous_sum {
-        //sum increased -> subbed out digit is unused, subbed in digit is used
-        digit_info = insert_digit(digit_info, &digit_subbed_in.unwrap(), 1);
-        digit_info = insert_digit(digit_info, &digit_subbed_out.unwrap(), 0);
-    }
-    if current_sum < previous_sum {
-        //sum decreased -> subbed out digit is used, subbed in digit is unused
-        digit_info = insert_digit(digit_info, &digit_subbed_out.unwrap(), 1);
-        digit_info = insert_digit(digit_info, &digit_subbed_in.unwrap(), 0);
-    }
-    if current_sum == previous_sum {
-        //digits are in "same boat" (info gained about one will lead to info about the other)
-        let rand_group_id = rand::thread_rng().gen_range(2, 1_000_000 as u32);
-        digit_info.insert(digit_subbed_out.unwrap(), rand_group_id);
-        digit_info.insert(digit_subbed_in.unwrap(), rand_group_id);
+        if current_sum > previous_sum {
+            //sum increased -> subbed out digit is unused, subbed in digit is used
+            digit_info = insert_digit(digit_info, &digit_subbed_in.unwrap(), 1);
+            digit_info = insert_digit(digit_info, &digit_subbed_out.unwrap(), 0);
+        }
+        if current_sum < previous_sum {
+            //sum decreased -> subbed out digit is used, subbed in digit is unused
+            digit_info = insert_digit(digit_info, &digit_subbed_out.unwrap(), 1);
+            digit_info = insert_digit(digit_info, &digit_subbed_in.unwrap(), 0);
+        }
+        if current_sum == previous_sum {
+            //digits are in "same boat" (info gained about one will lead to info about the other)
+            let rand_group_id = rand::thread_rng().gen_range(2, 1_000_000 as u32);
+            digit_info.insert(digit_subbed_out.unwrap(), rand_group_id);
+            digit_info.insert(digit_subbed_in.unwrap(), rand_group_id);
+        }
     }
 
     digit_info
@@ -307,57 +330,60 @@ fn insert_digit (mut digit_info: HashMap<u32, u32>, digit_to_insert: &u32, value
 
 //digit_info has digits as keys and status codes as values
 // (0 for unused, 1 for used, random ID for "same boat"
-fn get_next_guess (remaining_codes: &Vec<Vec<u32>>, digit_info: &HashMap<u32, u32>, previous_response: &Response) -> Vec<u32> {
+fn get_smart_guess (remaining_codes: &Vec<Vec<u32>>, digit_info: &HashMap<u32, u32>, previous_responses: &Vec<Response>) -> Option<Vec<u32>> {
     //todo: shuffle remaining codes so first code found is not a low number (like "000023")
-
-    //find which digits would be good to get more info on
-    let mut info_wanted_digits: Vec<u32> = Vec::new();
-    for digit in 0..=9 as u32 {
-        if !digit_info.contains_key(&digit) {
-            info_wanted_digits.push(digit);
-        } else if let Some(value) = digit_info.get(&digit) {
-            if *value > 1 as u32 {
-                //digit is in a grouping
-                info_wanted_digits.push(digit);
-            }
-        }
-    }
-
     let mut good_guesses = Vec::new();
     let mut better_guesses = Vec::new();
-    for code in remaining_codes {
-        let (subbed_in_digit, subbed_out_digit)
-            = get_subbed_digits(code, &previous_response.guess_code);
 
-        if subbed_in_digit == None || subbed_out_digit == None {
-            //cannot use this code for digit elimination, keep looking
-            continue
-        } else {
-            good_guesses.push(code.clone());
-
-            if info_wanted_digits.contains(&subbed_in_digit.unwrap()) || info_wanted_digits.contains(&subbed_out_digit.unwrap()) {
-                better_guesses.push(code.clone());
+    for previous_response in previous_responses {
+        //find which digits would be good to get more info on
+        let mut info_wanted_digits: Vec<u32> = Vec::new();
+        for digit in 0..=9 as u32 {
+            if !digit_info.contains_key(&digit) {
+                info_wanted_digits.push(digit);
+            } else if let Some(value) = digit_info.get(&digit) {
+                if *value > 1 as u32 {
+                    //digit is in a grouping
+                    info_wanted_digits.push(digit);
+                }
             }
-            if info_wanted_digits.contains(&subbed_in_digit.unwrap()) && info_wanted_digits.contains(&subbed_out_digit.unwrap()) {
-                //very good guess, return immediately to save time
-                println!("returning very good guess");
-                return code.clone()
+        }
+
+        for code in remaining_codes {
+            let (subbed_in_digit, subbed_out_digit)
+                = get_subbed_digits(code, &previous_response.guess_code);
+
+            if subbed_in_digit == None || subbed_out_digit == None {
+                //cannot use this code for digit elimination, keep looking
+                continue
+            } else {
+                good_guesses.push(code.clone());
+
+                if info_wanted_digits.contains(&subbed_in_digit.unwrap()) || info_wanted_digits.contains(&subbed_out_digit.unwrap()) {
+                    better_guesses.push(code.clone());
+                }
+                if info_wanted_digits.contains(&subbed_in_digit.unwrap()) && info_wanted_digits.contains(&subbed_out_digit.unwrap()) {
+                    //very good guess, return immediately to save time
+                    println!("returning very good guess");
+                    return Some(code.clone())
+                }
             }
         }
     }
 
     if let Some(guess) = better_guesses.get(0) {
         println!("returning better guess");
-        return guess.clone()
+        return Some(guess.clone())
     }
     if let Some(guess) = good_guesses.get(0) {
         println!("returning good guess");
-        return guess.clone()
+        return Some(guess.clone())
     }
     println!("returning random guess");
 
-    //no good codes found, so guess randomly
-    guess_randomly_from_remaining(remaining_codes)
+//    //no good codes found, so guess randomly
+//    guess_randomly_from_remaining(remaining_codes)
+    return None
 }
 
 fn guess_randomly_from_remaining(remaining_codes: &Vec<Vec<u32>>) -> Vec<u32>{
@@ -383,7 +409,6 @@ fn get_subbed_digits (current_code: &Vec<u32>, previous_code: &Vec<u32>) -> (Opt
 
         //this digit was subbed in
         if previous_code_count + 1 == current_code_count {
-            //println!("sub in");
             //another digit has already been subbed in, so this code will not work
             if digit_subbed_in != None {
                 return (None, None)
@@ -392,19 +417,13 @@ fn get_subbed_digits (current_code: &Vec<u32>, previous_code: &Vec<u32>) -> (Opt
         }
         //else if because a different digit must be subbed out than the one subbed in
         else if previous_code_count - 1 == current_code_count {
-            //println!("sub out");
             //another digit has already been subbed out, so this code will not work
             if digit_subbed_out != None {
                 return (None, None)
             }
             digit_subbed_out = Some(digit);
-        } else if previous_code_count != current_code_count {
-            //the count of this digit changed, but it was not subbed in or out 1 <-> 1
-            //we cannot do digit elimination on this code pair
-            return (None, None)
         }
     }
-
     (digit_subbed_in, digit_subbed_out)
 }
 
