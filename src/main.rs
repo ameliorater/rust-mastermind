@@ -6,7 +6,6 @@ extern crate derive_new;
 
 #[derive(Eq, PartialEq, Clone, new)]
 struct Response {
-    guess_code: Vec<u32>,
     right_place: u32, //# digits correct and in right place
     wrong_place: u32, //# digits correct and in the wrong place
 }
@@ -48,7 +47,7 @@ fn main() {
 
             let response;
             if automatic_mode {
-                response = get_response(&actual_code, guess_code);
+                response = get_response(&actual_code, &guess_code);
                 print_response(&response);
             } else {
                 println!("Please enter your response: ");
@@ -58,7 +57,7 @@ fn main() {
                 response = string_to_response(input, &guess_code);
             }
 
-            remaining_codes = remove_codes(remaining_codes, response);
+            remaining_codes = remove_codes(remaining_codes, &guess_code, &response);
             //println!("{} {}", "Codes remaining: ", &mut remaining_codes.len());
         }
 
@@ -92,7 +91,7 @@ fn main() {
     println!("{} {}", "Average guesses: ", total_guesses_all as f64/count as f64);
 }
 
-fn get_response (actual_code: &Vec<u32>, guess_code : Vec<u32>) -> Response {
+fn get_response (actual_code: &Vec<u32>, guess_code : &Vec<u32>) -> Response {
     let mut right_place = 0;
     let mut wrong_place = 0;
     let mut digits_used : HashMap<u32, bool> = HashMap::new();
@@ -109,7 +108,7 @@ fn get_response (actual_code: &Vec<u32>, guess_code : Vec<u32>) -> Response {
             digits_used.insert(guess_code[index], true);
         }
     }
-    Response { guess_code, right_place, wrong_place }
+    Response { right_place, wrong_place }
 }
 
 fn string_to_response (input : &str, guess_code : &Vec<u32>) -> Response {
@@ -121,7 +120,7 @@ fn string_to_response (input : &str, guess_code : &Vec<u32>) -> Response {
     let wrong_place = wrong_place.chars().next().unwrap();
     let wrong_place = wrong_place as u32 - '0' as u32;
 
-    Response { guess_code: guess_code.clone(), right_place, wrong_place }
+    Response { right_place, wrong_place }
 }
 
 fn responses_equal (response1: &Response, response2 : &Response) -> bool {
@@ -131,13 +130,13 @@ fn responses_equal (response1: &Response, response2 : &Response) -> bool {
     false
 }
 
-fn remove_codes (mut codes: Vec<Vec<u32>>, response: Response) -> Vec<Vec<u32>> {
+fn remove_codes (mut codes: Vec<Vec<u32>>, guess_code: &Vec<u32>, response: &Response) -> Vec<Vec<u32>> {
     let mut index = 0;
     loop {
         if index >= codes.len() {
             break
         }
-        if !responses_equal(&get_response(&codes[index], response.guess_code.clone()), &response) {
+        if get_response(&codes[index], guess_code) != *response {
             codes.swap_remove(index);
         } else {
             index += 1;
