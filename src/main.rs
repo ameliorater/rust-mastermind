@@ -26,8 +26,6 @@ fn main() {
 
     let all_correct_response = Response {right_place: 6, wrong_place: 0};
 
-    //println!("response test: {}", get_response(&num_to_vec(491830), &num_to_vec(968334)));
-
     while games_played < number_of_games {
         let mut total_guesses = 0;
         let mut automatic_mode = true;
@@ -35,7 +33,7 @@ fn main() {
         //set of all possible codes
         let mut remaining_codes: Vec<Vec<u32>> = generate_all_codes(num_choices, code_length);
 
-        //MANUAL CODE ENTRY
+        //CODE ENTRY
         let mut input = String::new();
         println!("\nPlease come up with a six-digit secret code. \n\
         You may use the digits 0 through 9. \nIf you trust the computer\
@@ -49,7 +47,7 @@ fn main() {
         }
         let actual_code = string_to_vec(input);
 
-        //AUTOMATIC RANDOM GUESSES
+        //GUESS LOOP
         while remaining_codes.len() > 0 {
             total_guesses += 1;
             let guess_code = guess_randomly_from_remaining(&remaining_codes);
@@ -68,15 +66,10 @@ fn main() {
             }
 
             remaining_codes = remove_codes(remaining_codes, &guess_code, &response);
-            println!("{} {}", "Codes remaining: ", &mut remaining_codes.len());
-
-            if remaining_codes.len() < 20 {
-                for code in &remaining_codes {
-                    //print_vec("code: ", code);
-                }
-            }
+            //println!("{} {}", "Codes remaining: ", &mut remaining_codes.len());
         }
 
+        //END GAME
         if remaining_codes.len() >= 1 {
             println!("{} {} {}", "I guessed it!\nGuesses: ", total_guesses, "\n");
             //multi-game stats
@@ -88,7 +81,6 @@ fn main() {
         }
     }
 
-    println!("{:?}", codes_and_guess_totals);
     let mut total_guesses_all = 0;
     let mut count = 0;
     for element in codes_and_guess_totals.values() {
@@ -97,29 +89,6 @@ fn main() {
     }
     println!("{} {}", "Average guesses: ", total_guesses_all as f64/count as f64);
 }
-
-//491830
-//968334
-
-//fn get_response (actual_code: &Vec<u32>, guess_code : &Vec<u32>) -> Response {
-//    let mut right_place = 0;
-//    let mut wrong_place = 0;
-//    let mut digits_used : HashMap<u32, bool> = HashMap::new();
-//    //initialize all to false
-//    for digit in 0..=9 {
-//        digits_used.insert(digit, false);
-//    }
-//
-//    for index in 0..actual_code.len() {
-//        if guess_code[index] == actual_code[index] {
-//            right_place += 1;
-//        } else if actual_code.contains(&guess_code[index]) && !digits_used[&guess_code[index]] {
-//            wrong_place += 1;
-//            digits_used.insert(guess_code[index], true);
-//        }
-//    }
-//    Response { right_place, wrong_place }
-//}
 
 fn get_response (actual_code: &Vec<u32>, guess_code : &Vec<u32>) -> Response {
     let mut actual_digit_indices: Vec<Vec<u32>> = vec![vec![]; 10]; //indices of first vec are digits 0-9
@@ -141,8 +110,6 @@ fn get_response (actual_code: &Vec<u32>, guess_code : &Vec<u32>) -> Response {
         }
         let count_in_actual = actual_digit_indices[digit].len() as u32;
         let count_in_guess = guess_digit_indices[digit].len() as u32;
-//        println!("right place: {}", right_place[digit]);
-//        println!("min of counts: {}", cmp::min(count_in_actual, count_in_guess));
         wrong_place[digit] += cmp::min(count_in_actual, count_in_guess) - right_place[digit];
     }
 
@@ -150,7 +117,7 @@ fn get_response (actual_code: &Vec<u32>, guess_code : &Vec<u32>) -> Response {
 }
 
 fn get_user_response() -> Response {
-    println!("Please enter your response: ");
+    println!("Please enter your response:");
     let mut input = String::new();
     io::stdin().read_line(&mut input).expect("Not a string");
     let input = input.trim(); //trim whitespace
@@ -183,7 +150,6 @@ fn remove_codes (mut codes: Vec<Vec<u32>>, guess_code: &Vec<u32>, response: &Res
             index += 1;
         }
     }
-    println!("num loop execs: {}", num_loop_execs);
     codes
 }
 
