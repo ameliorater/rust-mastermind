@@ -17,21 +17,22 @@ impl std::fmt::Display for Response {
 }
 
 fn main() {
-    let num_choices = 10; //cannot be larger than 10
-    let code_length = 6;
     let number_of_games = 10; //how many games to play before quitting program
 
+    //multi-game stats
     let mut codes_and_guess_totals : HashMap<Vec<u32>, u32> = HashMap::new();
     let mut games_played = 0;
 
     let all_correct_response = Response {right_place: 6, wrong_place: 0};
+
+    println!("\nNOTE: please use cargo run --release for better performance");
 
     while games_played < number_of_games {
         let mut total_guesses = 0;
         let mut automatic_mode = true;
 
         //set of all possible codes
-        let mut remaining_codes: Vec<Vec<u32>> = generate_all_codes(num_choices, code_length);
+        let mut remaining_codes: Vec<Vec<u32>> = generate_all_codes(10, 6);
 
         //CODE ENTRY
         let mut input = String::new();
@@ -137,10 +138,8 @@ fn string_to_response (input : &str) -> Response {
 }
 
 fn remove_codes (mut codes: Vec<Vec<u32>>, guess_code: &Vec<u32>, response: &Response) -> Vec<Vec<u32>> {
-    let mut num_loop_execs = 0;
     let mut index = 0;
     loop {
-        num_loop_execs += 1;
         if index >= codes.len() {
             break
         }
